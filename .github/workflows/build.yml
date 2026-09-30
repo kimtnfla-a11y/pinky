@@ -24,11 +24,28 @@ jobs:
       with:
         gradle-version: '7.6.1'
 
-    - name: APK 파일 생성 (하위 폴더 자동 감지)
+    - name: ZIP 파일 감지 및 압축 해제 후 빌드
       run: |
-        PROJECT_DIR=$(dirname $(find . -name "settings.gradle" | head -n 1))
-        echo "프로젝트 위치: $PROJECT_DIR"
-        cd "$PROJECT_DIR"
+        ZIP_PATH=$(find . -name "*.zip" | head -n 1)
+        
+        if [ -z "$ZIP_PATH" ]; then
+          echo "ZIP 파일을 찾을 수 없습니다. ZIP 파일을 저장소에 올려주세요."
+          exit 1
+        fi
+        
+        echo "발견된 ZIP 파일: $ZIP_PATH"
+        unzip -o "$ZIP_PATH" -d extracted_app
+        
+        SETTINGS_PATH=$(find extracted_app -name "settings.gradle" | head -n 1)
+        if [ -z "$SETTINGS_PATH" ]; then
+          echo "ZIP 파일 내부에 settings.gradle이 없습니다."
+          exit 1
+        fi
+        
+        TARGET_DIR=$(dirname "$SETTINGS_PATH")
+        echo "빌드 실행 경로: $TARGET_DIR"
+        
+        cd "$TARGET_DIR"
         gradle assembleDebug
 
     - name: APK 파일 업로드 (Artifacts)
