@@ -26,14 +26,14 @@ jobs:
 
     - name: ZIP 압축 해제 및 빌드 환경 자동 보정
       run: |
-        # ZIP 파일 압축 해제
+        # 1. ZIP 파일 압축 해제
         ZIP_PATH=$(find . -name "*.zip" | head -n 1)
         if [ -n "$ZIP_PATH" ]; then
           echo "ZIP 파일 발견: $ZIP_PATH"
           unzip -o "$ZIP_PATH" -d .
         fi
 
-        # settings.gradle 위치 검색 및 이동
+        # 2. settings.gradle 위치 검색 및 이동
         SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
         if [ -z "$SETTINGS_FILE" ]; then
           echo "ZIP 파일 내에 settings.gradle이 없습니다."
@@ -43,16 +43,20 @@ jobs:
         PROJECT_DIR=$(dirname "$SETTINGS_FILE")
         cd "$PROJECT_DIR"
 
-        # AGP 7.4+ 필수 namespace 구문 자동 주입
+        # 3. AndroidX 사용 옵션 자동 주입 (오류 해결 핵심)
+        echo "android.useAndroidX=true" >> gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
+
+        # 4. AGP 7.4+ 필수 namespace 구문 자동 주입
         APP_GRADLE=$(find . -name "build.gradle" | grep "/app/" | head -n 1)
         if [ -f "$APP_GRADLE" ] && ! grep -q "namespace" "$APP_GRADLE"; then
           sed -i '/android {/a \    namespace "com.pinky.filterapp"' "$APP_GRADLE"
         fi
 
-        # Android SDK 라이선스 자동 수락
+        # 5. Android SDK 라이선스 자동 수락
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-        # APK 빌드 실행
+        # 6. APK 빌드 실행
         gradle assembleDebug --no-daemon
 
     - name: APK 파일 업로드 (Artifacts)
