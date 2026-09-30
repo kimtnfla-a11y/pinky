@@ -24,7 +24,7 @@ jobs:
       with:
         gradle-version: '7.6.1'
 
-    - name: ZIP 압축 해제 및 빌드 환경 자동 보정
+    - name: ZIP 압축 해제 및 빌드 환경 자동 처리
       run: |
         # 1. ZIP 파일 압축 해제
         ZIP_PATH=$(find . -name "*.zip" | head -n 1)
@@ -33,32 +33,31 @@ jobs:
           unzip -o "$ZIP_PATH" -d .
         fi
 
-        # 2. settings.gradle 위치 검색 및 이동
+        # 2. settings.gradle 위치 확인
         SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
         if [ -z "$SETTINGS_FILE" ]; then
-          echo "ZIP 파일 내에 settings.gradle이 없습니다."
+          echo "settings.gradle 파일이 없습니다."
           exit 1
         fi
         
         PROJECT_DIR=$(dirname "$SETTINGS_FILE")
         cd "$PROJECT_DIR"
 
-        # 3. AndroidX 사용 옵션 자동 주입
+        # 3. AndroidX 옵션 주입
         echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
 
-        # 4. AGP 필수 namespace 구문 자동 주입
+        # 4. AGP namespace 설정 주입
         APP_GRADLE=$(find . -name "build.gradle" | grep "/app/" | head -n 1)
         if [ -f "$APP_GRADLE" ] && ! grep -q "namespace" "$APP_GRADLE"; then
           sed -i '/android {/a \    namespace "com.pinky.filterapp"' "$APP_GRADLE"
         fi
 
-        # 5. Android SDK 라이선스 강제 승인 (오류 해결 핵심)
+        # 5. Android SDK 라이선스 키 파일 직접 생성을 통해 외부 서버 접속 과정 패스
         mkdir -p "$ANDROID_HOME/licenses"
-        printf "24333f8a637173a92d6735be0a2720dce8f4f63a\n84831b9409646a2b8f358d7a493224725f324ea0\nd97531ed92a21965d14660f027bdb936658bfd9e" > "$ANDROID_HOME/licenses/android-sdk-license"
-        printf "d56f518747701750570bf4599c4e8c2e92706362" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
-        
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses || true
+        printf "893737222f190d641e3447ba8088528ce01156ee\n7393d25152dd096ca72096831183e2d61a96126c\n24333f8a637173a92d6735be0a2720dce8f4f63a\nd97531ed92a21965d14660f027bdb936658bfd9e\n" > "$ANDROID_HOME/licenses/android-sdk-license"
+        printf "84831b9409646a2b8f358d7a493224725f324ea0\n" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+        printf "33b6a2b646279f98179e948aea9769928507438c\n" > "$ANDROID_HOME/licenses/android-googletv-license"
 
         # 6. APK 빌드 실행
         gradle assembleDebug --no-daemon
