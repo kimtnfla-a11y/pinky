@@ -19,37 +19,44 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Gradle 7.6.1 자동 설정
+    - name: Gradle 7.6.1 설정
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '7.6.1'
 
-    - name: ZIP 파일 감지 및 압축 해제 후 빌드
+    - name: ZIP 압축 해제 및 빌드 환경 자동 보정
       run: |
+        # ZIP 파일 압축 해제
         ZIP_PATH=$(find . -name "*.zip" | head -n 1)
-        
-        if [ -z "$ZIP_PATH" ]; then
-          echo "ZIP 파일을 찾을 수 없습니다. ZIP 파일을 저장소에 올려주세요."
+        if [ -n "$ZIP_PATH" ]; then
+          echo "ZIP 파일 발견: $ZIP_PATH"
+          unzip -o "$ZIP_PATH" -d .
+        fi
+
+        # settings.gradle 위치 검색 및 이동
+        SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
+        if [ -z "$SETTINGS_FILE" ]; then
+          echo "ZIP 파일 내에 settings.gradle이 없습니다."
           exit 1
         fi
         
-        echo "발견된 ZIP 파일: $ZIP_PATH"
-        unzip -o "$ZIP_PATH" -d extracted_app
-        
-        SETTINGS_PATH=$(find extracted_app -name "settings.gradle" | head -n 1)
-        if [ -z "$SETTINGS_PATH" ]; then
-          echo "ZIP 파일 내부에 settings.gradle이 없습니다."
-          exit 1
+        PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+        cd "$PROJECT_DIR"
+
+        # AGP 7.4+ 필수 namespace 구문 자동 주입
+        APP_GRADLE=$(find . -name "build.gradle" | grep "/app/" | head -n 1)
+        if [ -f "$APP_GRADLE" ] && ! grep -q "namespace" "$APP_GRADLE"; then
+          sed -i '/android {/a \    namespace "com.pinky.filterapp"' "$APP_GRADLE"
         fi
-        
-        TARGET_DIR=$(dirname "$SETTINGS_PATH")
-        echo "빌드 실행 경로: $TARGET_DIR"
-        
-        cd "$TARGET_DIR"
-        gradle assembleDebug
+
+        # Android SDK 라이선스 자동 수락
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+        # APK 빌드 실행
+        gradle assembleDebug --no-daemon
 
     - name: APK 파일 업로드 (Artifacts)
       uses: actions/upload-artifact@v4
       with:
         name: Pinky-APK
-        path: '**/app/build/outputs/apk/debug/app-debug.apk'
+        path: '**/app/build/outputs/apk/debug/*.apk'
