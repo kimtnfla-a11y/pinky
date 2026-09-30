@@ -24,11 +24,15 @@ jobs:
       with:
         gradle-version: '7.6.1'
 
-    - name: APK 파일 생성 (Debug Build)
-      run: gradle assembleDebug
+    - name: APK 파일 생성 (하위 폴더 자동 감지)
+      run: |
+        PROJECT_DIR=$(dirname $(find . -name "settings.gradle" | head -n 1))
+        echo "프로젝트 위치: $PROJECT_DIR"
+        cd "$PROJECT_DIR"
+        gradle assembleDebug
 
     - name: APK 파일 업로드 (Artifacts)
       uses: actions/upload-artifact@v4
       with:
         name: Pinky-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: '**/app/build/outputs/apk/debug/app-debug.apk'
