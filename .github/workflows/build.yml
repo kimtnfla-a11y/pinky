@@ -43,18 +43,22 @@ jobs:
         PROJECT_DIR=$(dirname "$SETTINGS_FILE")
         cd "$PROJECT_DIR"
 
-        # 3. AndroidX 사용 옵션 자동 주입 (오류 해결 핵심)
+        # 3. AndroidX 사용 옵션 자동 주입
         echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
 
-        # 4. AGP 7.4+ 필수 namespace 구문 자동 주입
+        # 4. AGP 필수 namespace 구문 자동 주입
         APP_GRADLE=$(find . -name "build.gradle" | grep "/app/" | head -n 1)
         if [ -f "$APP_GRADLE" ] && ! grep -q "namespace" "$APP_GRADLE"; then
           sed -i '/android {/a \    namespace "com.pinky.filterapp"' "$APP_GRADLE"
         fi
 
-        # 5. Android SDK 라이선스 자동 수락
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        # 5. Android SDK 라이선스 강제 승인 (오류 해결 핵심)
+        mkdir -p "$ANDROID_HOME/licenses"
+        printf "24333f8a637173a92d6735be0a2720dce8f4f63a\n84831b9409646a2b8f358d7a493224725f324ea0\nd97531ed92a21965d14660f027bdb936658bfd9e" > "$ANDROID_HOME/licenses/android-sdk-license"
+        printf "d56f518747701750570bf4599c4e8c2e92706362" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+        
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses || true
 
         # 6. APK 빌드 실행
         gradle assembleDebug --no-daemon
