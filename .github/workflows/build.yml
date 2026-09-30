@@ -19,53 +19,48 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Android SDK 및 라이선스 자동 승인 설정
-      uses: android-actions/setup-android@v3
-
     - name: Gradle 7.6.1 설정
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '7.6.1'
 
-    - name: ZIP 압축 해제 및 빌드 환경 완전 자동 보정
+    - name: ZIP 압축 해제 및 빌드 실행
       run: |
         # 1. ZIP 파일 압축 해제
         ZIP_PATH=$(find . -name "*.zip" | head -n 1)
         if [ -n "$ZIP_PATH" ]; then
+          echo "ZIP 파일 발견: $ZIP_PATH"
           unzip -o "$ZIP_PATH" -d .
         fi
 
         # 2. settings.gradle 위치 검색 및 이동
         SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
         if [ -z "$SETTINGS_FILE" ]; then
-          echo "ZIP 파일 내에 settings.gradle이 없습니다."
+          echo "settings.gradle 파일이 없습니다."
           exit 1
         fi
         
         PROJECT_DIR=$(dirname "$SETTINGS_FILE")
         cd "$PROJECT_DIR"
 
-        # 3. AndroidX 및 라이선스 검사 우회 옵션 주입
+        # 3. AndroidX 및 속성 설정
         echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
-        echo "android.builder.sdkDownload=true" >> gradle.properties
 
-        # 4. AGP 필수 namespace 구문 자동 주입
+        # 4. AGP namespace 설정 주입
         APP_GRADLE=$(find . -name "build.gradle" | grep "/app/" | head -n 1)
         if [ -f "$APP_GRADLE" ] && ! grep -q "namespace" "$APP_GRADLE"; then
           sed -i '/android {/a \    namespace "com.pinky.filterapp"' "$APP_GRADLE"
         fi
 
-        # 5. 시스템 라이선스 폴더 전체 동의 파일 생성 (모든 경로 대응)
-        for LOC in "$ANDROID_HOME/licenses" "/usr/local/lib/android/sdk/licenses"; do
-          mkdir -p "$LOC"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          printf "24333f8a637173a92d6735be0a2720dce8f4f63a\n84831b9409646a2b8f358d7a493224725f324ea0\nd97531ed92a21965d14660f027bdb936658bfd9e\n893737222f190d641e3447ba8088528ce01156ee\n7393d25152dd096ca72096831183e2d61a96126c\n" > "$LOC/android-sdk-license"
-          printf "84831b9409646a2b8f358d7a493224725f324ea0\n" > "$LOC/android-sdk-preview-license"
-        done
+        # 5. SDK 라이선스 사전 주입 (네트워크 접속 차단 방지)
+        SDK_PATH="/usr/local/lib/android/sdk"
+        mkdir -p "$SDK_PATH/licenses"
+        printf "24333f8a637173a92d6735be0a2720dce8f4f63a\n84831b9409646a2b8f358d7a493224725f324ea0\nd97531ed92a21965d14660f027bdb936658bfd9e\n893737222f190d641e3447ba8088528ce01156ee\n7393d25152dd096ca72096831183e2d61a96126c\n" > "$SDK_PATH/licenses/android-sdk-license"
+        printf "84831b9409646a2b8f358d7a493224725f324ea0\n" > "$SDK_PATH/licenses/android-sdk-preview-license"
 
-        # 6. APK 빌드 실행 (라이선스 누락 시 자동 다운로드 옵션 포함)
-        gradle assembleDebug --no-daemon -Pandroid.builder.sdkDownload=true
+        # 6. APK 빌드 실행
+        gradle assembleDebug --no-daemon
 
     - name: APK 파일 업로드 (Artifacts)
       uses: actions/upload-artifact@v4
